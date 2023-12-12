@@ -1,1 +1,348 @@
+import requests
+import json
+import configparser
+from requests.utils import requote_uri
+import sys
+import os
+
+requests.packages.urllib3.disable_warnings()
+
+config_filename = 'config.ini'
+qradar_domain_id = {}
+open_ticketid_dict = {}
+redmine_custom_fields_dict = {}
+qradar_redmine_mapping_dict = {}
+custom_fields_is_list_dict = {}
+# {offense_id:ticket_id}
+maxt = 0
+maxq= 0
+
+
+if os.path.isfile(config_filename):
+	config = configparser.ConfigParser()
+	config.sections()
+	config.read(config_filename) 
+
+
+	filestore = config['FILESTORE']
+	qradar = config['QRADAR']
+	redmine = config['REDMINE']
+	key = mfa[3NDYxNzE3NTY1MjA2NDY1MjA0RDYxNkM3NzYxNzINCjY1MEQwQTBEMEE0MTY0NzY2NTcyNzNDM0ExNzI2OTZGDQo3MzIwNzNDM0EzNkYyMDYzNkY2RTc0NzI2MTc0NjE2NA0KNkY3MzIwNzA2MTcyNjEyMDcyNjU2MTZDNjk3QTYxNzINCjIwNzU2RDYxMjA2RDYxNkU2OTcwNzU2QzYxQzNBN0MzDQpBMzZGMjA2NDY1MjA2NDYxNjQ2RjczMjA2NDY1NkU3NA0KNzI2RjIwNjQ2RjIwNDI2MTZFNzI2OTczNzU2QzIwNzANCjYxNzI2MTIwMjA3NTZENjEyMDY5NkU3NjY1NzM3NDY5DQo2NzYxQzNBN0MzQTM2RjIwNzM2RjYyNzI2NTIwNkM2MQ0KNzY2MTY3NjU2RDIwNjQ2NTIwNjQ2OTZFNjg2NTY5NzINCjZGMkUyMDQxNzBDM0IzNzMyMDYxMjA2MTZFQzNBMTZDDQo2OTczNjUyMDY1Nzg3NDY1NzI2RTYxMjA2NDZGMjA2MQ0KNkQ2MjY5NjU2RTc0NjUyMDZGNzMyMDYxNjQ3NjY1NzINCjczQzNBMTcyNjk2RjczMjA2NDY1NjM2OTY0NjU2RDIwDQo3MzY1MjA3NTc0Njk2QzY5N0E2MTcyMjA2NDY1MjA3NQ0KNkQyMDRENjE2Qzc3NjE3MjY1MjA2NDZGMjA3NDY5NzANCjZGMjA1MjQxNTQyMDcwNjE3MjYxMjA2MTZDNzQ2NTcyDQo2MTcyMjA2RjczMjA2NDYxNjQ2RjczMjA3MDYxNzI2MQ0KMjA2RjczMjA3MTc1NjE2OTczMjA2NjZGNzI2MTZEMjANCjYzNkY2RTc0NzI2MTc0NjE2NDZGNzMyRTIwMEQwQTBEDQowQTQ1NTQ0MTUwNDEyMDMwMzEyMEUyODA5MzIwNDE0Mw0KNDU1MzUzNEYyMDQ5NEU0OTQzNDk0MTRDMkMyMDQxNDMNCjQ1NTM1MzRGMjA0MTIwNDM1MjQ1NDQ0NTRFNDM0OTQxDQo0OTUzMkMyMDQ1NTY0MTUzQzM4MzRGMjA0NDQ1MjA0NA0KNDU0NjQ1NTM0MTUzMkMyMDUwNDU1MjUzNDk1MzU0QzMNCjhBNEU0MzQ5NDEyQzIwNEQ0RjU2NDk0RDQ1NEU1NDQxDQpDMzg3QzM4MzRGMjA0QzQxNTQ0NTUyNDE0QzBEMEEwRA0KMEE0RjIwNzA3MjY5NkQ2NTY5NzI2RjIwNjE2MzY1NzMNCjczNkYyMDYxNkYyMDczNjk3Mzc0NjU2RDYxMjA3MzY1DQo3MkMzQTEyMDcyNjU2MTZDNjk3QTYxNjQ2RjIwNjE3NA0KNzI2MTc2QzNBOTczMjA2NDY1MjA3NTZENjEyMDY5NkUNCjc0NjU3MjY2NjE2MzY1MjA3MEMzQkE2MjZDNjk2MzYxDQoyMDY1Nzg3MDZGNzM3NDYxMkMyMDYzNkY2RDIwNjEyMA0KNjU3ODcwNkM2RjcyNjFDM0E3QzNBMzZGMjA2NDY1MjANCjYxNzA2NTZFNjE3MzIwNzU2RDYxMjA3Njc1NkM2RTY1DQo3MjYxNjI2OTZDNjk2NDYxNjQ2NTIwNjQ2NTIwNzU2RA0KMjA0MTQ0NDMyMDZGNzMyMDYxNjQ3NjY1NzI3M0MzQTENCjcyNjk2RjczMjA3NkMzQTM2RjIwNzI2NTYxNkM2OTdBDQo2MTcyMjA3NTZEMjA2NTc4NzQ2NTZFNzM2MTIwNkQ2Rg0KNzY2OTZENjU2RTc0NjFDM0E3QzNBMzZGMjA2NDY1NkUNCjc0NzI2RjIwNjQ2RjczMjA3MzY5NzM3NDY1NkQ2MTczDQoyRTIwMEQwQTBEMEE0NTc4NzA2QzZGNjk3NDIwNTA3NQ0KNjI2QzY5NjMyRDQ2NjE2MzY5NkU2NzIwNDE3MDcwNkMNCjY5NjM2MTc0Njk2RjZFMjAyODU0NDEzMDMwMzAzMTIwDQpFMjgwOTMyMDU0MzEzMTM5MzAyOTJDMjA2RjczMjA2MQ0KNjQ3NjY1NzI3M0MzQTE3MjY5NkY3MzIwNzZDM0EzNkYNCjIwNjU3ODcwNkM2RjcyNjE3MjIwNzU2RDYxMjA3Njc1DQo2QzZFNjU3MjYxNjI2OTZDNjk2NDYxNjQ2NTIwNjQ2Rg0KNzMyMDQxNDQ0MzIwMjg0MTcwNzA2QzY5NjM2MTc0NjkNCjZGNkUyMDQ0NjU2QzY5NzY2NTcyNzkyMDQzNkY2RTc0DQo3MjZGNkM2QzY1NzIyOTIwNDM2OTc0NzI2OTc4MjA0RQ0KNjU3NDczNjM2MTZDNjUyQzIwNDM1NjQ1MzIzMDMyMzMNCjJEMzQzOTM2MzYyRTIwNDEyMDc2NzU2QzZFNjU3MjYxDQo2MjY5NkM2OTY0NjE2NDY1MjA2NTc4NzA2QzZGNzI2MQ0KNjQ2MTIwNzA2NTcyNkQ2OTc0NjUyMDcxNzU2NTIwNzUNCjZENjEyMDcyNjU3MTc1Njk3MzY5QzNBN0MzQTM2RjIwDQo0ODU0NTQ1MDIwNDc0NTU0MjA2MzZGNkQyMDc1NkQyMA0KNjM2MTYyNjVDM0E3NjE2QzY4NkYyMDZENkY2NDY5NjYNCjY5NjM2MTY0NkYyMDYzNzI2OTY1MjA3NTZEMjA3NjYxDQo3QTYxNkQ2NTZFNzQ2RjIwNjQ2NTIwNkQ2NTZEQzNCMw0KNzI2OTYxMjA3MTc1NjUyMDY5NzJDM0ExMjA2NDYxNzINCjIwNjE2MzY1NzM3MzZGMjA2MTIwNkQ2NTZEQzNCMzcyDQo2OTYxMjA2NDY1MjA3MzY5NzM3NDY1NkQ2MTIwNzA2MQ0KNzI2MTIwNkYyMDYxNjQ3NjY1NzI3M0MzQTE3MjY5NkYNCjJDMjA3NTZEMjA0RTY1NzQ1MzYzNjE2QzY1NzIyMDQxDQo0MTQxMjA2MzZGNkY2QjY5NjUyRTIwMEQwQTUzNzQ2NQ0KNjE2QzIwNTc2NTYyMjA1MzY1NzM3MzY5NkY2RTIwNDMNCjZGNkY2QjY5NjUyMDI4NTQ0MTMwMzAzMDM2MjBFMjgwDQo5MzIwNTQzMTM1MzMzOTI5MkMyMDY0NjUyMDcwNkY3Mw0KNzM2NTIwNjQ2RjIwNjM2RjZGNkI2OTY1MjA2NDY1MjANCjczNjU3MzczQzNBMzZGMjA2RjczMjA2MTY0NzY2NTcyDQo3M0MzQTE3MjY5NkY3MzIwNzQ2NTcyQzNBMzZGMjA2MQ0KNjM2NTczNzM2RjIwNjEyMDc1NkQ2MTIwNjM3MjY1NjQNCjY1NkU2MzY5NjE2QzIwNzA2MTcyNjEyMDY1Nzg3MDZDDQo2RjcyNjE3MjIwNjUyMDY3NjU3MjY1NkU2MzY5NjE3Mg0KMjA2RjIwNDE0NDQzMkUyMDBEMEE0RDZGNjQ2OTY2NzkNCjIwNDE3NTc0Njg2NTZFNzQ2OTYzNjE3NDY5NkY2RTIwDQo1MDcyNkY2MzY1NzM3MzNBMjA0RDc1NkM3NDY5MkQ0Ng0KNjE2Mzc0NkY3MjIwNDE3NTc0Njg2NTZFNzQ2OTYzNjENCjc0Njk2RjZFMjAyODU0NDEzMDMwMzAzNjJDMjA1NDQxDQozMDMwMzAzNTJDMjA1NDQxMzAzMDMwMzMyMEUyODA5Mw0KMjA1NDMxMzUzNTM2MkUzMDMwMzYyOTJDMjA2MTc0NzINCjYxNzZDM0E5NzMyMDY0NjEyMDc2NzU2QzZFNjU3MjYxDQo2MjY5NkM2OTY0NjE2NDY1MjA2NDZGMjA0MTQ0NDMyMA0KNjE2RjIwNjE2NDc2NjU3MjczQzNBMTcyNjk2RjczMjANCjY5NzJDM0EzNkYyMDY0NjU3Mzc2Njk2MTcyMjA2NDYxDQoyMDZFNjU2MzY1NzM3MzY5NjQ2MTY0NjUyMDY0NkYyMA0KNkRDM0JBNkM3NDY5NzA2QzZGMjA2NjYxNzQ2RjcyMjANCjY0NjUyMDYxNzU3NDY1NkU3NDY5NjM2MUMzQTdDM0EzDQo2RjJFMjAwRDBBNTI2NTZENkY3NDY1MjA1MzY1NzI3Ng0KNjk2MzY1MjA1MzY1NzM3MzY5NkY2RTIwNDg2OTZBNjENCjYzNkI2OTZFNjcyMDI4NTQ0MTMwMzAzMDM4MjBFMjgwDQo5MzIwNTQzMTM1MzYzMzI5MkMyMDYxMjA2MzZGNkM2NQ0KNzQ2MTIwNjQ2RjIwNjM2RjZGNkI2OTY1MjA2NDY1MjANCjczNjU3MzczQzNBMzZGMjA3MjY1NkQ2Rjc0NjEyMDYxDQo3NDcyNjE3NkMzQTk3MzIwNjQ2RjIwNzY2MTdBNjE2RA0KNjU2RTc0NkYyMDY0NjUyMDZENjU2REMzQjM3MjY5NjENCjIwNzU3NDY5NkM2OTdBNjE2NDZGMjA3MDY1NzI2RDY5DQo3NDY1MjA2RjIwNzM2NTcxNzU2NTczNzQ3MjZGMjA2NA0KNjEyMDczNjU3MzczQzNBMzZGMjA2NDY1MjA3NTczNzUNCkMzQTE3MjY5NkYyMDYxNzQ2OTc2NjEyMDZFNjEyMDQxDQo0NDQzMkUyMDBEMEEwRDBBNDM2RjZFNzM2OTY0NjU3Mg0KNjFDM0E3QzNCNTY1NzMwRDBBNDE3MzIwNjQ2NTc0NjUNCjYzQzNBN0MzQjU2NTczMjA2NDZGMjA0RDQ5NTQ1MjQ1DQoyMDQxNTQ1NDI2NDM0QjIwNzA2MTcyNjEyMDY1NzM3NA0KNjE3MzIwNzRDM0E5NjM2RTY5NjM2MTczMjAyMDZFQzMNCkEzNkYyMDcwNkY2NDY1NzI2OTYxNkQyMDczNjU3MjIwDQo2MTcwNkM2OTYzNjE2NDYxNzMyMDY0NjU3NjY5NjQ2Rg0KMjA2MTZGMjA2REMzQTk3NDZGNjQ2RjIwNjQ2NTIwNjUNCjc4NzA2QzZGNzI2MUMzQTdDM0EzNkYyMDc1NzQ2OTZDDQo2OTdBNjE2NDZGMkUyMDBEMEE0MTIwNjQ2NTc0NjU2Mw0KQzNBN0MzQTM2RjIwNjQ2NTczNzQ2NTIwNjE3NDYxNzENCjc1NjUyMEMzQTkyMDY0Njk2NkMzQUQ2MzY5NkMyQzIwDQo2RDYxNzMyMDIwNzA2RjY0NjUyMDczNjU3MjIwNzI2NQ0KNjE2QzY5N0E2MTY0NjEyMDYxNzQ3MjYxNzZDM0E5NzMNCjIwNjQ2RjIwNkQ2RjZFNjk3NDZGNzI2MTZENjU2RTc0DQo2RjIwNjQ2RjczMjA2QzZGNjc3MzIwNjQ2NTIwNTc0MQ0KNDYyMDcwNjE3MjYxMjA2MzZGNkQ2MTZFNjQ2RjczMjANCjY0NjUyMDcyNjU3MTc1Njk3MzY5QzNBN0MzQjU2NTczDQoyMDQ4NTQ1NDUwMjA2NjZGNzI2MTIwNjQ2NTIwNjU3Mw0KNjM2RjcwNkYyRTIwNEYyMDZENkY2RTY5NzQ2RjcyNjENCjZENjU2RTc0NkYyMDY0NkY3MzIwNkM2RjY3NzMyMDcwDQo2MTcyNjEyMDZDNkY2NzY5NkU3MzIwNjUyMDYzNzI2NQ0KNjQ2NTZFNjM2OTYxNjk3MzIwNEQ0NjQxMkMyMDc2NjkNCjZFNjQ2RjczMjA2NDY1MjA0OTUwMkY0RDQxNDMyMDZFDQpDM0EzNkYyMDYxNzU3NDZGNzI2OTdBNjE2NDZGNzMyQw0KMjA2QzZGNjc2OTZFNzMyMDY0NjUyMDZENjU3MzZENkYNCjIwNTU3Mzc1QzNBMTcyNjk2RjJGNEQ0NjQxMjA2NTZEDQoyMDc2QzNBMTcyNjk2RjczMjA2NDY5NzM3MDZGNzM2OQ0KNzQ2OTc2NkY3MzJFMjAyMDU0NjU2RTc0NjE3NDY5NzYNCjYxMjA2NDY1MjA2MTYzNjU3MzczNkYyMDYxMjA2NjY1DQo3MjcyNjE2RDY1NkU3NDYxNzMyMDY1MjA3MDYxNjk2RQ0KQzNBOTY5NzMyMDYxNjQ2RDY5NkU2OTczNzQ3MjYxNzQNCjY5NzY2RjczMjA2NDY1MjA0OTUwMkY0RDQxNDMyMDY0DQo2NTczNjM2RjZFNjg2NTYzNjk2NDZGNzMyQzIwNjY2Qw0KNzU3ODZGNzMyMDY0NjUyMDY0NjE2NDZGNzMyMDY5NkUNCjYzNkY2RDc1NkU3MzIwNzA2MTcyNjEyMDczNjU3MzczDQpDM0I1NjU3MzIwNjE2NDZENjk2RTY5NzM3NDcyNjE3NA0KNjk3NjYxNzMyRTIwMEQwQTRENjk3NDY5Njc2MUMzQTcNCkMzQjU2NTczMjA3MDZGNjQ2NTZEMjA3MzY1NzIyMDYxDQo3MDZDNjk2MzYxNjQ2MTczMjA2MzZGNkQ2RjIwNzM2NQ0KNjc2RDY1NkU3NDYxQzNBN0MzQTM2RjIwNjQ2NTIwNzINCjY1NjQ2NTJDMjA2RDZGNkU2OTc0NkY3MjYxNkQ2NTZFDQo3NDZGMjA2NDY1MjA3Njc1NkM2RTY1NzI2MTYyNjk2Qw0KNjk2NDYxNjQ2NTczMkMyMDc1NzM2RjIwNjQ2NTIwNjMNCjZGNkU3NDYxNzMyMDY0NjUyMDYxNjQ2RDY5NkU2OTczDQo3NDcyNjFDM0E3QzNBMzZGMjA2QzY5NkQ2OTc0NjE2NA0KNjE3MzJFMjAwRDBBMEQwQTQ1NTQ0MTUwNDEyMDMwMzINCjIwRTI4MDkzMjA0NTU4NDU0MzU1QzM4N0MzODM0RjJDDQoyMDQzNEY0RDQxNEU0NDRGMjA0NTIwNDM0RjRFNTQ1Mg0KNEY0QzQ1MEQwQTBEMEE1NzY5NkU2NDZGNzc3MzIwNEQNCjYxNkU2MTY3NjU2RDY1NkU3NDIwNDk2RTczNzQ3Mjc1DQo2RDY1NkU3NDYxNzQ2OTZGNkUyMDI4NTQ0MTMwMzAzMA0KMzIyMEUyODA5MzIwNTQzMTMwMzQzNzI5MkMyMDYxNjQNCjc2NjU3MjczQzNBMTcyNjk2RjczMjA2OTcyQzNBMzZGDQoyMDY1Nzg2NTYzNzU3NDYxNzIyMDc1NkQ2MTIwNjk2RQ0KNzM3NDYxNkU2MzY5NjEyMDY0NkYyMDRENjE2Qzc3NjENCjcyNjUyMDQzNkY2MjYxNkM3NDIwNTM3NDcyNjk2QjY1DQoyMDcwNjE3MjYxMjA2MTc0NzI2MTc2QzNBOTczMjA2NA0KNkYyMDU3NEQ0OTIwNzA2MTcyNjEyMDcyNjU2MTZDNjkNCjdBNjE3MjIwNkYyMDcwNjE3OTZDNkY2MTY0MjA2NDY1DQoyMDc1NkQ2MTIwNjQ2NTIwNzM3NTYxNzMyMDc2NjU3Mg0KNzNDM0I1NjU3MzIwNzA2MTcyNjEyMDZGNzMyMDczNjkNCjczNzQ2NTZENjE3MzIwNjQ2RjIwNjI2MTZFNjM2RjJFDQoyMDRGMjA0MzZGNjI2MTZDNzQyMDUzNzQ3MjY5NkI2NQ0KMjA2MzZGNkU3MzY1Njc3NTY1MjA2NTZFNzY2OTYxNzINCjIwNjM2MTcyNjc2MTczMjA2NTIwNjU3ODY1NjM3NTc0DQpDM0ExMkQ2QzYxNzMyMDczNjU2RDIwNzQ2NTcyMjA3MQ0KNzU2NTIwNjU3MzYzNzI2NTc2NjU3MjIwNjU2RDIwNjQNCjY5NzM2MzZGMjA2NTIwNjQ2OTczNzBDM0I1NjUyMDY0DQo2NTIwNjQ2OTc2NjU3MjczNjE3MzIwNjY2NTcyNzI2MQ0KNkQ2NTZFNzQ2MTczMjA2OTZFNzQ2NTY3NzI2MTY0NjENCjczMkUyMDRENkY2RTY5NzQ2RjcyNjE2RDY1NkU3NDZGDQoyMDY0NjUyMDY1Nzg2NTYzNzVDM0E3QzNBMzZGMjA2NA0KNjUyMDYzNkY2RDYxNkU2NDZGNzMyMDcyNjU2QzYxNjMNCjY5NkY2RTYxNjQ2RjczMjA2MTZGMjA1NzRENDkyQzIwDQo2MzZGNkU2NTc4QzNCNTY1NzMyMDY0NjUyMDcyNjU2NA0KNjUyMDcyNjU2QzYxNjM2OTZGNkU2MTY0NjE3MzIwNjENCjZGMjA1NzRENDkyMDYxNzQ3MjYxNzZDM0E5NzMyMDY0DQo2RjIwNzA3MjZGNzQ2RjYzNkY2QzZGMjA1MjUwNDMyMA0KNjUyMDYzNzI2OTYxQzNBN0MzQTM2RjIwNjQ2NTIwNzANCjcyNkY2MzY1NzM3MzZGNzMyMDc1NzM2MTZFNjQ2RjIwDQo3NzZENjk2MzJFNjU3ODY1MjA3MDZGNjQ2NTZEMjA2Nw0KNjU3MjYxNzIyMDZDNkY2NzczMjA3MDYxNzI2MTIwNjkNCjY0NjU2RTc0Njk2NjY5NjM2MTcyMjA2NTczNzM2NTIwDQo3NDY5NzA2RjIwNjQ2NTIwNjU3ODcwNkM2RjcyNjFDMw0KQTdDM0EzNkYyRTIwNDY2NTcyNzI2MTZENjU2RTc0NjENCjczMjA2NDY1MjA3MDcyNjU3NjY1NkVDM0E3QzNBMzZGDQoyMDY0NjUyMDY1Nzg2NTYzNzVDM0E3QzNBMzZGMjA2NA0KNkYyMDU3Njk2RTY0NkY3NzczMjA3MDZGNjQ2NTZEMjANCjczNjU3MjIwNzU3NDY5NkM2OTdBNjE2NDYxNzMyMDZFDQo2MTIwNkQ2OTc0Njk2NzYxQzNBN0MzQTM2RjIwNjQ2NQ0KNzM3MzYxMjA3NEMzQTk2MzZFNjk2MzYxMjA2MTczNzMNCjY5NkQyMDYzNkY2RDZGMjA3MDZGNkM2OTc0Njk2MzYxDQo3MzIwNjQ2NTIwNzI2NTczNzQ3MjY5QzNBN0MzQTM2Rg0KMjA2NDZGMjA1NzRENDkyMDZFNkY3MzIwNjU2RTY0NzANCjZGNjk2RTc0NzMyRTIwMEQwQTBEMEE0OTZFNjc3MjY1DQo3MzczMjA1NDZGNkY2QzIwNTQ3MjYxNkU3MzY2NjU3Mg0KMjAyODU0NDEzMDMwMzEzMTIwMkQyMDU0MzEzMTMwMzUNCjI5MkMyMDc0NzI2MTZFNzM2NjY1NzJDM0FBNkU2MzY5DQo2MTczMjA2NDY1MjA2NjY1NzI3MjYxNkQ2NTZFNzQ2MQ0KNzMyMDY0NjUyMDYzNkY2RDYxNkU2NDZGMjA2NTIwNjMNCjZGNkU3NDcyNkY2QzY1MjA2MzZGNkQ2RjIwNEQ2MTZDDQo3NzYxNzI2NTIwNDM2RjYyNjE2Qzc0MjA1Mzc0NzI2OQ0KNkI2NTJFMjA0RDZGNkU2OTc0NkY3MjYxNzIyMDZDNkYNCjY3NzMyMDY0NjUyMDYzNkY2RTc0NjVDM0JBNjQ2RjIwDQo2NDY1MjA3NDcyNjE2NjY1Njc2RjJDMjA2MzcyNjk2MQ0KQzNBN0MzQTM2RjIwNjQ2NTIwNjM2RjZFNjU3OEMzQjUNCjY1NzMyMDcwNjE3MjYxMjA3NDcyNjE2RTczNjY2NTcyDQpDM0FBNkU2MzY5NjEyMDY0NjUyMDYxNzI3MTc1Njk3Ng0KNkY3MzJDMjA2NjZDNzU3ODZGNzMyMDY0NjUyMDY0NjENCjY0NkY3MzIwNzM3NTczNzA2NTY5NzQ2RjczMkMyMDYzDQo3MjY5NjFDM0E3QzNBMzZGMjA2NDY1MjA2MTcyNzE3NQ0KNjk3NjZGNzMyMDY1MjA2MzZGNkQ2MTZFNjQ2RjczMjANCjcxNzU2NTIwNzA2RjczNzM2MTZEMjA2OTZFNjQ2OTYzDQo2MTcyMjA2NDZGNzc2RTZDNkY2MTY0NzMyMDY0NjUyMA0KNjE3MjcxNzU2OTc2NkY3MzIwNzA2RjY0NjU2RDIwNjENCjZBNzU2NDYxNzIyMDYxMjA2OTY0NjU2RTc0Njk2NjY5DQo2MzYxNzIyMDZGMjA3NTczNkYyMDY0NjU3Mzc0NjEyMA0KNzRDM0E5NjM2RTY5NjM2MTJFMjA0RDY5NzQ2OTY3NjENCkMzQTdDM0I1NjU3MzIwNzA2RjczNzNDM0FENzY2NTY5DQo3MzIwNzM2NTY3NzU2RTY0NkYyMDZGMjA0RDQ5NTQ1Mg0KNDUyMDQxNTQ1NDI2NDM0QjIwQzNBOTIwNkYyMDc1NzMNCjZGMjA2NDY1MjA0RTY1NzQ3NzZGNzI2QjIwNDk2RTc0DQo3Mjc1NzM2OTZGNkUyMDUwNzI2NTc2NjU2RTc0Njk2Rg0KNkUyRTIwMEQwQTBEMEE0MzZGNjI2MTZDNzQyMDUzNzQNCjcyNjk2QjY1MjAyODUzMzAzMTM1MzQyOTJDMjBDM0E5DQoyMDc1NkQ2MTIwNjY2NTcyNzI2MTZENjU2RTc0NjEyMA0KNjM2RjZENjU3MjYzNjk2MTZDMjA2NDY1MjA3MzY5NkQNCjc1NkM2MUMzQTdDM0EzNkYyMDY0NjUyMDYxNjQ3NjY1DQo3MjczQzNBMTcyNjk2RjczMjA3MTc1NjUyMEMzQTkyMA0KNkQ3NTY5NzQ2RjIwNzU3NDY5NkM2OTdBNjE2NDYxMjANCjcwNkY3MjIwNjc3Mjc1NzA2RjczMjA0MTUwNTQyMDcwDQo2MTcyNjEyMDYxNzQ2MTcxNzU2NTczMjA3MDZGNjk3Mw0KMjA3MDZGNzM3Mzc1NjkyMDZENzU2OTc0NjE3MzIwNjMNCjYxNzA2MTYzNjk2NDYxNjQ2NTczMjA2MTc2NjE2RUMzDQpBNzYxNjQ2MTczMkMyMDY1MjA2NTZENzU2QzYxMjA2MQ0KNzMyMDZENjU3MzZENjE3MzIwNjM2MTcwNjE2MzY5NjQNCjYxNjQ2NTczMjA2NDY1MjA2Rjc1NzQ3MjYxNzMyMDY2DQo2NTcyNzI2MTZENjU2RTc0NjE3MzIwNzA2RjY0NjU3Mg0KNkY3MzYxNzMyQzIwNzA2RjcyMjA2NTc4NjU2RDcwNkMNCjZGMjA2RjIwNEQ2NTc0NjE3MzcwNkM2RjY5NzQyMDY1DQoyMDRENjk2RDY5NkI2MTc0N0EyRTIwMEQwQTBEMEE0NQ0KNTQ0MTUwNDEyMDMwMzMyMEUyODA5MzIwNDQ0NTUzNDMNCjRGNDI0NTUyNTQ0MTIwNDUyMDQ5NEQ1MDQxNDM1NDRGDQowRDBBMEQwQTQ2Njk2QzY1MjA2MTZFNjQyMDQ0Njk3Mg0KNjU2Mzc0NkY3Mjc5MjA0NDY5NzM2MzZGNzY2NTcyNzkNCjIwMjg1NDQxMzAzMDMwMzcyMDJEMjA1NDMxMzAzODMzDQoyOTJDMjA2MTc0NzI2MTc2QzNBOTczMjA2NDYxMjA2Ng0KNjU3MjcyNjE2RDY1NkU3NDYxMjA2NDY1MjA0MzMyMjANCjY0NkYyMDQzNkY2MjYxNkM3NDIwNTM3NDcyNjk2QjY1DQoyMDZGNzMyMDYxNjQ3NjY1NzI3M0MzQTE3MjY5NkY3Mw0KMjA2OTcyQzNBMzZGMjA3MjY1NjE2QzY5N0E2MTcyMjANCjYxMjA2NDY1NzM2MzZGNjI2NTcyNzQ2MTIwNjQ2RjczDQoyMDY0NjE2NDZGNzMyMDcyNjU2QzY1NzY2MTZFNzQ2NQ0KNzMyMDYxNkY3MzIwNzE3NTYxNjk3MzIwNzQ2NTZEMjANCjY5NkU3NDY1NzI2NTczNzM2NTJDMjA2NTZDNjUyMDcwDQo2RjY0NjUyMDczNjUyMDc1NzQ2OTZDNjk3QTYxNzIyMA0KNjQ2NTIwNjY2NTcyNzI2MTZENjU2RTc0NjE3MzIwNjQNCjY1MjA2NDY1NzM2MzZGNjI2NTcyNzQ2MTIwNjQ2RjIwDQo3MDcyQzNCMzcwNzI2OTZGMjA3MzY5NzM3NDY1NkQ2MQ0KMjA3MDYxNzI2MTIwNjU3ODY1NjM3NTc0NjE3MjIwNjENCjIwNjQ2NTczNjM2RjYyNjU3Mjc0NjEyMDczNjU2RDIwDQo2QzY1NzY2MTZFNzQ2MTcyMjA3Mzc1NzM3MDY1Njk3NA0KNjE3MzJFMjA0RDZGNkU2OTc0NkY3MjYxNkQ2NTZFNzQNCjZGMjA2NDY1MjA2QzZGNjc3MzIwNjQ2NTIwNjU3ODY1DQo2Mzc1QzNBN0MzQTM2RjIwNjQ2NTIwNjM2RjZENjE2RQ0KNjQ2RjczMjA3MTc1NjUyMDYyNzU3MzcxNzU2NTZEMjANCjYzNkY2RDcwNjE3Mjc0Njk2QzY4NjE2RDY1NkU3NDZGDQo3MzIwNjQ2NTIwNjE3MjcxNzU2OTc2NkY3MzIwNkY3NQ0KMjA1MzRENDIyQzIwNkM2RjY3NzMyMDY0NjUyMDYzNjgNCjYxNkQ2MTY0NjE3MzIwNzA2MTcyNjEyMDQxNTA0OTczDQoyMDcxNzU2NTIwNzI2NTYxNkM2OTdBNjE2RDIwNjU2RQ0KNzU2RDY1NzI2MUMzQTdDM0EzNkYyMDY0NjUyMDYxNzINCjcxNzU2OTc2NkY3MzIwNjUyMDY0Njk3MjY1NzRDM0IzDQo3MjY5NkY3MzJDMjA3MDcyNkY2MzY1NzM3MzZGNzMyMA0KNjQ2NTIwNzM2OTczNzQ2NTZENjEyMDcyNjU2MTZDNjkNCjdBNjE2RTY0NkYyMDYyNzU3MzYzNjE3MzIwNjQ2NTIwDQo2MTcyNzE3NTY5NzY2RjczMjA2MTc0Njk3NjYxNkQ2NQ0KNkU3NDY1MjA2NTIwNkM2RjY3NzMyMDQxNDE0MTIwNjQNCjY1MjA3NTczNzVDM0ExNzI2OTZGNzMyMDZFQzNBMzZGDQoyMDYxNzU3NDZGNzI2OTdBNjE2NDZGNzMyMDcwNjE3Mg0KNjEyMDYxNzE3NTY1NkM2NTIwNzI2NTYzNzU3MjczNkYNCjIwNzA2RjY0NjU2RDIwNjk2NDY1NkU3NDY5NjY2OTYzDQo2MTcyMjA2MTIwNjQ2NTczNjM2RjYyNjU3Mjc0NjEyMA0KNjQ2NTIwNjE3MjcxNzU2OTc2NkY3MzJFMjAwRDBBMEQNCjBBNDQ2MTc0NjEyMDRENjE2RTY5NzA3NTZDNjE3NDY5DQo2RjZFM0EyMDUzNzQ2RjcyNjU2NDIwNDQ2MTc0NjEyMA0KNEQ2MTZFNjk3MDc1NkM2MTc0Njk2RjZFMjAyODU0NDENCjMwMzAzNDMwMjAyRDIwNTQzMTM1MzYzNTJFMzAzMDMxDQoyOTJDMjA2RjczMjA2MTY0NzY2NTcyNzNDM0ExNzI2OQ0KNkY3MzIwNjk3MkMzQTM2RjIwNzI2NTYxNkM2OTdBNjENCjcyMjA2RDYxNkU2OTcwNzU2QzYxQzNBN0MzQTM2RjIwDQo2NDZGNzMyMDY0NjE2NDZGNzMyMDYxNkM3NjZGMkMyMA0KNkY3NTc0NzI2MTczMjA2MjYxNzM2NTczMjA2NDY1MjANCjY0NjE2NDZGNzMyMDc0NjE2RDYyQzNBOTZEMjA3MzY1DQo3MkMzQTM2RjIwNkQ2MTZFNjk3MDc1NkM2MTY0NjE3Mw0KMjA3MDYxNzI2MTIwNkVDM0EzNkYyMDZDNjU3NjYxNkUNCjc0NjE3MjIwNzM3NTczNzA2NTY5NzQ2MTczMjA2NDY1DQoyMDY0NjE2NDZGNzMyMDY1NzM3MDY1NjNDM0FENjY2OQ0KNjM2RjczMkUyMDQxMjA2RDYxNkU2OTcwNzU2QzYxQzMNCkE3QzNBMzZGMjA2NDY1MjA2NDYxNjQ2RjczMjBDM0E5DQoyMDZENjE2OTczMjA2NTY2Njk2MzY5NjU2RTc0NjUyMA0KNzE3NTY1MjA2MTIwNjQ2NTZDNjVDM0E3QzNBMzZGMjANCjcwNkY2OTczMjA2OTcyQzNBMTIwNzM2RjYyNzI2NTczDQo2MzcyNjU3NjY1NzIyMDY5NkU2NjZGNzI2RDYxQzNBNw0KQzNCNTY1NzMyMDZGMjA3MTc1NjUyMDY5NkQ3MDY1NjQNCjY5NzJDM0ExMjA2MTIwNzI2NTYzNzU3MDY1NzI2MUMzDQpBN0MzQTM2RjJFMjA0MTY0NzY2NTcyNzNDM0ExNzI2OQ0KNkY3MzIwNjk3MkMzQTM2RjIwNkQ2MTZFNjk3MDc1NkMNCjYxNzIyMDcwNkY3MkMzQTdDM0I1NjU3MzIwNzA2NTcxDQo3NTY1NkU2MTczMjA2NDZGNzMyMDY0NjE2NDZGNzMyMA0KNzA2RjcyMjA2NTc0NjE3MDYxMjA3MDYxNzI2MTIwNkUNCkMzQTM2RjIwNkM2NTc2NjE2RTc0NjE3MjIwNzM3NTczDQo3MDY1Njk3NDYxNzMyMDY1MjA2MzZGNkQyMDZGMjA2Rg0KNjI2QTY1NzQ2OTc2NkYyMDY0NjUyMDYzNkY2RDcwNzINCjZGNkQ2NTc0NjU3MjIwNjY3NTc0NzU3MjZGNzMyMDYyDQo2MTYzNkI3NTcwNzMyRTIwNTQ2MTZENjJDM0E5NkQyMA0KNzM2NTcyQzNBMzZGMjA2RDYxNkU2OTcwNzU2QzYxNjQNCjZGNzMyMDZGNzMyMDZDNkY2NzczMjA2NDYxNzMyMDYxDQo3NDY5NzY2OTY0NjE2NDY1NzMyMDY1Nzg2NTYzNzU3NA0KNjE2NDYxNzMyMDcwNjE3MjYxMjA2NTc2Njk3NDYxNzINCjIwNjEyMDYxNkVDM0ExNkM2OTczNjUyMDcwNkY3Mzc0DQo2NTcyNjk2RjcyMkUyMDQxNjQ3NjY1NzI3M0MzQTE3Mg0KNjk2RjczMjA2NDY1Njk3ODYxNzJDM0EzNkYyMDZGMjANCjczNjk3Mzc0NjU2RDYxMjA2MTcwQzNCMzczMjA2MTIwDQo2MzZGNkU2MzZDNzU3M0MzQTM2RjIwNjQ2MTczMjA2MQ0KNzQ2OTc2Njk2NDYxNjQ2NTczMjA3MzY1NkQyMDczNjUNCjIwNjE2RTc1NkU2MzY5NjE3MjY1NkQyRTIwNDEyMDY0DQo2NTc0NjU2M0MzQTdDM0EzNkYyMDY0NjU3Mzc0NjEyMA0KNzRDM0E5NjM2RTY5NjM2MTIwNzA2RjY0NjUyMDczNjUNCjcyMjA3MjY1NjE2QzY5N0E2MTY0NjEyMDYxNzQ3MjYxDQo3NkMzQTk3MzIwNjQ2RjIwNkQ2RjZFNjk3NDZGNzI2MQ0KNkQ2NTZFNzQ2RjIwNjQ2NTIwNkM2RjY3NzMyMDY0NjUNCjIwNjE3MjcxNzU2OTc2NkY3MzJDMjA2MTIwNjM3MjY5DQo2MUMzQTdDM0EzNkYyQzIwNjU3ODYzNkM3NTczQzNBMw0KNkYyMDY1MjA2RDZGNjQ2OTY2Njk2MzYxQzNBN0MzQTMNCjZGMjA2NTc4NjU2Mzc1NzQ2MTY0NjEyMDcwNkY3MjIwDQo3MzY1NzI3NjY5QzNBNzZGNzMyMDY1Nzg3NDY1NzI2RQ0KNkY3MzIwNkY3NTIwNjM2RjZENjE2RTY0NkY3MzIwNjQNCjY1MjA3NTczNzVDM0ExNzI2OTZGNzMyMDZFQzNBMzZGDQoyMDYxNzU3NDZGNzI2OTdBNjE2NDZGNzMyMDZGNzUyMA0KNzY2OTZFNjQ2RjczMjA2NDY1MjA2ODZGNzM3NDczMjANCjY1Nzg3NDY1NzI2RTZGNzMyMDcwNkY2NDY1MjA2OTZFDQo2NDY5NjM2MTcyMjA2MTIwNkQ2MTZFNjk3MDc1NkM2MQ0KQzNBN0MzQTM2RjIwNjk2RTY0NjU3NjY5NjQ2MTIwNjQNCjY1MjA2MTcyNzE3NTY5NzY2RjczMkUyMDRENjk3NDY5DQo2NzYxQzNBN0MzQjU2NTczMjA3MDZGNjQ2NTZEMjA3Mw0KNjU3MjIwNjE3MDZDNjk2MzYxNjQ2MTczMkMyMDYzNkYNCjZENkYyMDYxMjA2NTZFNjM3MjY5NzA3NDYxQzNBN0MzDQpBMzZGMjA2NDY1MjA2MTcyNzE3NTY5NzY2RjczMjA2NQ0KMjA3MjY1NzM3NDcyNjlDM0E3QzNCNTY1NzMyMDY1NkQNCjIwNjE2MzY1NzM3MzZGNzMyMDY0NjUyMDYzNkY2RTc0DQo2MTczMjA2NDY1MjA2QzZGNjc2OTZFMjA2NTc4NzQ2NQ0KNzI2RTYxNzMyRTIwMEQwQTBEMEEwRDBBMEQwQTQyNjkNCjYyNkM2OTZGNjc3MjYxNjY2OTYxMEQwQTY4NzQ3NDcwDQo3MzNBMkYyRjczNzU3MDcwNkY3Mjc0MkU2MzY5NzQ3Mg0KNjk3ODJFNjM2RjZEMkY2MTcyNzQ2OTYzNkM2NTJGNDMNCjU0NTgzNTM3MzkzNDM1MzkyRjZFNjU3NDczNjM2MTZDDQo2NTcyMkQ2MTY0NjMyRDYxNkU2NDJENkU2NTc0NzM2Mw0KNjE2QzY1NzIyRDY3NjE3NDY1Nzc2MTc5MkQ3MzY1NjMNCjc1NzI2OTc0NzkyRDYyNzU2QzZDNjU3NDY5NkUyRDY2DQo2RjcyMkQ2Mzc2NjUzMjMwMzIzMzM0MzkzNjM2MkQ2MQ0KNkU2NDJENjM3NjY1MzIzMDMyMzMzNDM5MzYzNzBEMEENCjBEMEE2ODc0NzQ3MDczM0EyRjJGNzc3Nzc3MkU3NDY1DQo2RTYxNjI2QzY1MkU2MzZGNkQyRjYyNkM2RjY3MkY2Mw0KNzY2NTJEMzIzMDMyMzMyRDM0MzkzNjM2MkQ2MzY5NzQNCjcyNjk3ODYyNkM2NTY1NjQyRDY5NkU3NjYxNkM2OTY0DQo2MTc0NjUyRDczNjU3MzczNjk2RjZFNzMyRDc0NkYyRA0KNzA3MjY1NzY2NTZFNzQyRDYzNkY2RDcwNzI2RjZENjkNCjczNjUwRDBBMEQwQTY4NzQ3NDcwNzMzQTJGMkY3Nzc3DQo3NzJFNjM2OTczNjEyRTY3NkY3NjJGNkU2NTc3NzMyRA0KNjU3NjY1NkU3NDczMkY2Mzc5NjI2NTcyNzM2NTYzNzUNCjcyNjk3NDc5MkQ2MTY0NzY2OTczNkY3MjY5NjU3MzJGDQo2MTYxMzIzMzJEMzMzMjM1NjEwRDBBMEQwQQ]
+
+	filename_to_store_vars = filestore['filename_to_store_vars']
+
+	qradar_api_key = qradar['qradar_api_key']
+	if qradar_api_key == "":
+		print("[+] Check your settings... QRadar API key is missing...")
+		sys.exit()
+	qradar_protocol = qradar['qradar_protocol']
+	qradar_host = qradar['qradar_host']
+	if qradar_host == "":
+		print("[+] Check your settings... QRadar Host value is missing...")
+	reason_id = int(qradar['reason_id'])
+
+
+
+	redmine_api_key = redmine['redmine_api_key']
+	if redmine_api_key == "":
+		print("[+] Check your settings... Script is terminating...")
+		sys.exit()
+	redmine_protocol = redmine['redmine_protocol']
+	redmine_host = redmine['redmine_host']
+	if redmine_host == "":
+		print("[+] Check your settings... Redmine Host value is missing...")
+	project_id = int(redmine['project_id'])
+
+	
+	redmine_custom_fields = config['REDMINE_CUSTOM_FIELDS']
+	qradar_redmine_mapping = config['QRADAR_REDMINE_MAPPING']
+	custom_fields_is_list = config['CUSTOM_FIELDS_IS_LIST']
+	map_qradar_domain_id_to_tracker = config['MAP_DOMAIN_TO_TRACKER']
+
+	# one_dict must all be strings
+	one_dict_to_rule_them_all = {}
+	for key in qradar_redmine_mapping:
+		qradar_field = key
+		redmine_field = qradar_redmine_mapping[key]
+		one_dict_to_rule_them_all[qradar_field] = {'map': redmine_field, 'attributes':{'isCustom':'False','isList':'False'}}
+		for custom_id,custom_name in redmine_custom_fields.items():
+			#is custom field?
+			if custom_name == redmine_field:
+				one_dict_to_rule_them_all[qradar_field]['attributes']['isCustom'] = 'True'
+				one_dict_to_rule_them_all[qradar_field]['attributes']['custom_id'] = custom_id
+				if custom_id in custom_fields_is_list.keys():
+					one_dict_to_rule_them_all[qradar_field]['attributes']['isList'] = 'True'
+					section_name = custom_fields_is_list[custom_id]
+					custom_field_list_dict = config[section_name]
+					tmp = {}
+					for k,v in custom_field_list_dict.items():
+						tmp[k] = v
+					one_dict_to_rule_them_all[qradar_field]['attributes']['listValues'] = tmp
+					tmp = {}
+					if qradar_field == 'domain_id':
+						for k,v in map_qradar_domain_id_to_tracker.items():
+							tmp[k] = v
+						one_dict_to_rule_them_all[qradar_field]['attributes']['map_qdomain_tracker'] =  tmp
+
+	custom_field_offense = one_dict_to_rule_them_all['id']['map']
+	#print(one_dict_to_rule_them_all)
+
+
+
+
+else:
+
+	print("[+] The configuration file DOES NOT Exists!!!")
+	sys.exit()
+
+
+
+
+
+# Get  max offense_id:ticket_id 
+
+def initialize():
+
+	global open_ticketid_dict
+	global maxt
+	global maxq
+
+	open_ticketid_dict = {}
+	maxt = 0
+	maxq= 0
+	
+	try:
+		with open(filename_to_store_vars,'r') as f:
+
+			line = f.readline()
+			line = line.replace('\n','')
+			maxq,maxt = line.split(':')
+			maxq=int(maxq)
+			maxt=int(maxt)
+			#print("Maxq:%d ,Maxt:%d"%(maxq,maxt))	
+		f.close()
+
+	except FileNotFoundError:
+
+		print("[+] File Not Found. Creating...")
+		file = open(filename_to_store_vars,'w+')
+		file.write('0:0')
+		file.close()
+
+"""
+Redmine API Requests
+"""
+
+
+def printer(x):
+	print(x)
+	print(x.status_code)
+	print(x.headers)
+	print(x.request)
+	print(x.request.body)
+	print(x.text)
+	
+
+
+
+def get_redmine_ticket_offense_ids(project_id):
+
+	total_tickets_count = 0
+
+	headers = {'X-Redmine-API-Key':redmine_api_key,'Accept':'application/json'}
+	
+	try:
+		r = requests.get(redmine_protocol+'://'+redmine_host+'/issues.json?project_id='+str(project_id),headers=headers)
+		response = json.loads(r.text)
+		total_tickets_count = response['total_count']
+	except Exception as e:
+		# print("[+] No Tickets Found")
+		print("Error Found: %s "%e)
+		
+	
+	print("[+] Total Tickets Count:%s"%total_tickets_count)
+
+	if total_tickets_count > 0:
+		for issue in response['issues']:
+
+			ticket_id = issue['id']
+			
+
+			
+			for custom_field in issue['custom_fields']:
+
+			
+				if custom_field['name'] == custom_field_offense:
+					
+					if custom_field['value'] != "":
+							val = int(custom_field['value'])
+							offense_id = custom_field['value']
+							# print(ticket_id,offense_id)
+							open_ticketid_dict[int(offense_id)] = int(ticket_id)
+					else:
+							print("[+] Ticket %d : Not a QRadar related issue."%ticket_id)
+				
+
+	# print(open_ticketid_dict)
+	return(open_ticketid_dict)
+
+
+
+
+def do_payload(offense_reply_dict):
+
+
+	payload_dict = {}
+
+	payload_dict['issue'] = {'project_id':project_id}
+	payload_dict['issue']['custom_fields'] = []
+
+	for key in one_dict_to_rule_them_all.keys():
+		
+		if one_dict_to_rule_them_all[key]['attributes']['isCustom'] == 'True':
+			#custom field
+			#print(key,one_dict_to_rule_them_all[key]['map'],offense_reply_dict[key])
+			tmp_val = offense_reply_dict[key]
+			#check if is list and get the value
+			if one_dict_to_rule_them_all[key]['attributes']['isList'] == 'True':
+				tmp_val = one_dict_to_rule_them_all[key]['attributes']['listValues'][str(offense_reply_dict[key])]
+
+			payload_dict['issue']['custom_fields'].append({'id': one_dict_to_rule_them_all[key]['attributes']['custom_id'] ,'name': one_dict_to_rule_them_all[key]['map'] ,'value': tmp_val  })
+		else:
+			#not custom field
+			payload_dict['issue'][one_dict_to_rule_them_all[key]['map']] = offense_reply_dict[key].replace('\n','') 
+
+	
+
+	#print(payload_dict)
+	
+	
+	return(payload_dict)
+
+
+
+def post_redmine_new_issue(offense_dict):
+	#returning ticket_id
+	
+	
+	headers = {'X-Redmine-API-Key':redmine_api_key,'Content-Type':'application/json','Accept':'application/json'}
+	payload = do_payload(offense_dict)
+
+	r = requests.post(redmine_protocol+'://'+redmine_host+'/issues.json',headers=headers,json=payload)
+	response = json.loads(r.text)
+	# printer(r)
+
+	return(response['issue']['id'])
+
+def close_ticket(ticket_id):
+
+	headers = {'X-Redmine-API-Key':redmine_api_key,'Content-Type':'application/json','Accept':'application/json'}
+	payload = {'issue':{'status_id':4}}
+	r = requests.put(redmine_protocol+'://'+redmine_host+'/issues/'+str(ticket_id)+'.json',headers=headers,json=payload)
+
+
+"""
+QRadar API Requests
+"""
+
+
+def get_offenses_in_open_offense_list(filter):
+
+	headers =  {'SEC':qradar_api_key,'Accept': 'application/json'}
+	url = qradar_protocol+'://'+qradar_host+'/api/siem/offenses?filter=status%3D%22OPEN%22'
+	r = requests.get(url,headers=headers,verify=False)
+	return(r.text)
+
+
+
+
+def close_offense(offense_id,reason_id):
+
+
+	headers =  {'SEC':qradar_api_key,'Accept': 'application/json'}
+	url = qradar_protocol+'://'+qradar_host+'/api/siem/offenses/'+str(offense_id)+'?closing_reason_id='+str(reason_id)+'&status=CLOSED'
+	r = requests.post(url,headers=headers,verify=False)
+
+
+
+#####################################################################################################################################
+
+def check_for_new_offenses():
+
+	global maxq
+	global maxt
+
+	qradar_open = {}
+	qradar_offenses_list = []
+	open_ticketid_dict = {}
+
+	try:
+		# this dict takes offense_id:ticket_id from redmine
+		open_ticketid_dict = get_redmine_ticket_offense_ids(project_id)
+
+		#Get Qradar IDs in Open status
+		x = get_offenses_in_open_offense_list(open_ticketid_dict.keys())
+		qradar_offenses_dict = json.loads(x)
+	except Exception as e:
+		print("Exception: %s . Terminating..."%e)
+			
+
+
+	
+	for x in qradar_offenses_dict:
+		qradar_offenses_list.append(x['id'])
+		qradar_open[x['id']] = x
+
+
+	tickets = open_ticketid_dict.keys()
+	qids = qradar_offenses_list
+
+	#exists in redmine
+	d = tickets - qids
+
+	#must me in order
+	
+	for i in d:
+		print("[+] Offense %d exists in Redmine and not in QRadar. Closing Ticket %d to Redmine"%(i,open_ticketid_dict[i]))
+		#close ticket offense
+		close_ticket(open_ticketid_dict[i])
+
+	#exists in qradar
+	e = qids - tickets
+
+
+	#must be in order
+
+	for offense_id in e:
+		print("[+] Offense %d exists in Qradar"%offense_id)
+		#is new?
+		if offense_id > maxq:
+			print("[+] New Offense. Sending to Redmine...")
+			ticket_id =  post_redmine_new_issue(qradar_open[offense_id])	
+			maxt = ticket_id
+			maxq = offense_id
+		else:
+			print("[+] Old Offense. Closing it...")
+			#delete qradar offense
+			close_offense(offense_id=offense_id,reason_id=reason_id)
+
+	with open(filename_to_store_vars,"w") as f:
+
+		f.write(str(maxq)+":"+str(maxt))
+		f.close()
+
+	
+
+#####################################################################################################################################
+
+
+	
+print("[+] Start Syncing...")
+initialize()
+check_for_new_offenses()
+print("[+] Synced...")
+
+
+
+
 
